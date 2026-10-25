@@ -18,60 +18,93 @@
 
 ## Project structure
 
-- `index.html` — semantic page structure and interface.
-- `style.css` — responsive layout, theme, and component styles.
-- `script.js` — map, place search, geolocation, routing, saved places, and interactions.
+- `index.html` — existing map interface.
+- `style.css` — existing responsive layout and styles.
+- `script.js` — existing map, place search, geolocation, routing, and interactions.
 - `server.js` — small Node.js server for local development.
 - `package.json` — project metadata and commands.
-- `manifest.webmanifest` — installable PWA metadata.
-- `sw.js` — service worker for app-shell caching.
-- `icon.svg` — application icon.
-- `tests/smoke-test.js` — basic project structure and syntax checks.
+- `manifest.webmanifest` and `sw.js` — PWA metadata and app-shell caching.
+- `tests/smoke-test.js` — basic project checks.
 - `.github/workflows/ci.yml` — automatic checks on pushes and pull requests.
 
-## Requirements
+## New Python panorama prototype
 
-- Node.js 18 or newer (only needed for the optional local server and checks).
-- A modern browser.
-- Internet access for map tiles, geocoding, and route requests.
+The repository now also includes an early Flask-based WayFind AI prototype:
 
-## Run locally with Node.js
+- `app.py` — image upload endpoint and basic image validation.
+- `templates/index.html` — panorama upload interface and viewer.
+- `static/style.css` — responsive styles for the Python interface.
+- `requirements.txt` — Python dependencies.
+- `uploads/` — local upload storage, excluded from Git.
+
+The prototype accepts JPG/PNG files (maximum 20 MB) and displays suitable equirectangular panoramas using Pannellum. Its aspect-ratio check is only a heuristic; it cannot confirm that an image is a valid 360° panorama.
+
+**Not implemented yet:** object/sign detection, OCR, automatic visual localization, AI-generated route instructions, and live camera navigation. These are planned development stages, not active features.
+
+## Run the existing map application (Node.js)
 
 1. Install Node.js 18 or newer from https://nodejs.org/.
 2. Clone this repository.
 3. Open a terminal in the project folder.
 4. Run:
 
+    ```bash
     npm start
+    ```
 
 5. Visit http://localhost:3000.
 
-There are no npm packages to install. You can also run the built-in checks:
+There are no npm packages to install. Run the built-in checks with:
 
+    ```bash
     npm run check
+    ```
 
-Browser geolocation and service workers work on secure contexts such as localhost and HTTPS. Opening the HTML file directly with a file URL is not recommended.
+The static frontend can also be published with GitHub Pages using the existing repository setup. GitHub Pages does not run the Python Flask backend.
 
-## Deploy with GitHub Pages
+## Run the Python panorama prototype
 
-1. Open this repository's **Settings → Pages**.
-2. Select **Deploy from a branch**.
-3. Choose the `main` branch and `/(root)`, then save.
-4. Wait for GitHub to publish the site.
+Python 3.11+ is recommended.
 
-The frontend is static, so GitHub Pages does not run `server.js` and does not need Node.js to build the site. The same HTML, CSS, JavaScript, manifest, icon, and service worker can be served as static files.
+### Windows PowerShell
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+python app.py
+```
+
+### macOS/Linux
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+python app.py
+```
+
+Open http://127.0.0.1:5000 in your browser. The Python app is separate from the existing Node.js map app; run one server at a time or use different ports.
+
+The current Flask server is for local development only. Do not expose Flask's debug server publicly. For deployment, use a production WSGI server, appropriate upload access controls, and secure storage.
 
 ## External services and limitations
 
 - **Map tiles:** OpenStreetMap. Keep attribution visible and follow the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
-- **Place search:** the public Nominatim endpoint is used for user-submitted searches. It is rate-limited and intended for moderate use. This demo deliberately avoids autocomplete. Read the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/).
+- **Place search:** the public Nominatim endpoint is rate-limited and intended for moderate use. Read the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/).
 - **Routing:** the public OSRM demo endpoint is best-effort and may be unavailable or rate-limited. It is not a production service with an uptime guarantee.
-- **Internet required:** live map tiles, place search, and routing need internet access even when the app shell is cached.
-- **No production guarantee:** before a public or commercial launch, select providers whose usage terms, capacity, privacy terms, and costs fit your expected traffic. Do not assume public demo endpoints can support heavy usage.
+- **Panorama viewer:** Pannellum is loaded from jsDelivr in the prototype, so that viewer needs internet access.
+- **No production guarantee:** before a public launch, choose map, geocoding, and routing providers whose terms, privacy requirements, costs, and capacity fit expected traffic.
 
-## Privacy
+## Privacy and safety
 
-WayFind does not request location automatically. Geolocation is requested only after a user action. Saved places are stored in that browser's local storage and can be cleared from the Saved places section. Searches are sent to the configured public place-search service, and route coordinates are sent to the routing service. Review provider policies before a production launch.
+- The existing map app requests geolocation only after the user presses the location button.
+- Searches and route coordinates may be sent to the configured public search/routing services.
+- Uploaded panorama images are stored locally in `uploads/`; remove them when no longer needed.
+- Do not upload images containing private or sensitive information.
+- Do not rely on an unverified visual match for safety-critical navigation. Ask the user to confirm uncertain locations and directions.
 
 ## Working with a collaborator
 
@@ -82,7 +115,11 @@ WayFind does not request location automatically. Geolocation is requested only a
 
 ## Roadmap
 
-- Choose supported production map, geocoding, and routing providers.
-- Add browser-based end-to-end tests and accessibility checks.
-- Add optional accounts and cross-device saved places only if required, with consent and secure backend rules.
-- Add curated accessibility information and verified opening hours through a licensed data source.
+1. Improve panorama validation and add tests.
+2. Add sign/object detection and OCR with user correction.
+3. Build a reference-image dataset for known campus locations.
+4. Match uploaded scenes to known places with confidence thresholds.
+5. Integrate pedestrian routing and generate turn-by-turn instructions.
+6. Add mobile GPS, compass, camera capture, and live route updates.
+7. Evaluate localization, OCR, route accuracy, and failure cases.
+8. Add browser-based end-to-end and accessibility tests.
