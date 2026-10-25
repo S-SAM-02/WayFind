@@ -6,8 +6,7 @@ const SHELL = [
   './style.css',
   './script.js',
   './manifest.webmanifest',
-  './icon.svg',
-  './404.html'
+  './icon.svg'
 ];
 
 self.addEventListener('install', event => {
@@ -32,7 +31,6 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
-
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
 
   event.respondWith(
