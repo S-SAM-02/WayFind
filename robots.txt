@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://S-SAM-02.github.io/WayFind/sitemap.xml
