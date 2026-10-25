@@ -1,34 +1,21 @@
-/* Built-in smoke checks; intentionally uses only Node.js core modules. */
+/* Basic project smoke tests — uses only Node.js built-in modules. */
 'use strict';
-
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-
-const root = path.resolve(__dirname, '..');
-const required = [
-  'index.html',
-  'style.css',
-  'script.js',
-  'manifest.webmanifest',
-  'sw.js',
-  'icon.svg',
-  'server.js'
-];
-
-for (const file of required) {
-  assert.ok(fs.existsSync(path.join(root, file)), 'Missing required file: ' + file);
-}
-
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-assert.match(html, /href="\.\/style\.css"/, 'index.html should load style.css');
-assert.match(html, /src="\.\/script\.js"/, 'index.html should load script.js');
-assert.match(html, /id="map"/, 'Map container should exist');
-assert.match(html, /id="searchForm"/, 'Place search form should exist');
-assert.match(html, /id="routeForm"/, 'Route planner form should exist');
-
-const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-assert.match(sw, /style\.css/, 'Service worker should cache the stylesheet');
-assert.match(sw, /script\.js/, 'Service worker should cache the app script');
-
-console.log('WayFind smoke checks passed.');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+for(const file of ['index.html','style.css','script.js','manifest.webmanifest','sw.js','icon.svg','server.js'])assert.ok(fs.existsSync(path.join(root,file)),'Missing required file: '+file);
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const js=fs.readFileSync(path.join(root,'script.js'),'utf8');
+const css=fs.readFileSync(path.join(root,'style.css'),'utf8');
+assert.match(html,/href="\.\/style\.css"/,'HTML should load stylesheet');
+assert.match(html,/src="\.\/script\.js"/,'HTML should load application JS');
+for(const id of ['routeForm','from','to','directionsPanel','stepsList','startNavBtn','stopNavBtn','roadPhoto','readPhotoBtn','photoText','stageRoute','map','gpsText'])assert.ok(html.includes('id="'+id+'"'),'Missing required interface element: '+id);
+assert.ok(!/google\.com\/maps|maps\.googleapis\.com|google\.com\/maps\/embed/i.test(html+js),'Google Maps UI/redirect should not be included');
+assert.match(js,/router\.project-osrm\.org/,'App should use its configured non-Google routing service');
+assert.match(js,/watchPosition/,'Live GPS watch should be implemented');
+assert.match(js,/tesseract\.js/,'Photo OCR should be wired');
+assert.match(css,/\.navigation-stage/,'Navigation-first UI styles should exist');
+assert.match(css,/@media\(max-width:760px\)/,'Mobile layout styles should exist');
+assert.match(fs.readFileSync(path.join(root,'sw.js'),'utf8'),/script\.js/,'Service worker should cache JavaScript');
+console.log('WayFind navigation smoke checks passed.');
