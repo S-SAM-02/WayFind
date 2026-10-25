@@ -1,26 +1,87 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b0a09"><meta name="description" content="WayFind helps you explore places, find your location, and plan routes on mobile or desktop.">
-<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<title>WayFind — Find your way — Black & Gold Edition</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080a12">
+<meta name="description" content="WayFind is a live navigation companion with clear turns, GPS guidance, and photo-assisted sign reading.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="./style.css">
+<title>WayFind — Live navigation</title>
 </head>
-<body><div class="app">
-<header class="topbar"><div class="brand"><div class="logo">⌁</div><div>WayFind<small>YOUR WORLD, WITHIN REACH</small></div></div><div class="top-actions"><span class="status" id="connection">● Ready to explore</span><button class="pill" id="installBtn" hidden>＋ Install app</button><button class="pill" id="shareBtn">↗ Share</button></div></header>
-<main class="layout"><aside class="sidebar" id="planner">
-<div class="eyebrow">Explore with confidence</div><h1 class="headline">Every journey<br>starts somewhere.</h1><p class="sub">Find places, map your route, and get moving.</p>
-<div class="searchbox"><label class="field-label" for="destination">Where do you want to go?</label><form id="searchForm" class="field-row"><input id="destination" class="field" placeholder="Search a place or address…" autocomplete="off" required><button class="primary" type="submit">Find</button></form><button class="secondary full" id="locateBtn">◎ Use my current location</button></div>
-<div class="quick"><button class="chip" data-query="cafes near me">☕ Cafés</button><button class="chip" data-query="restaurants near me">🍜 Food</button><button class="chip" data-query="parks near me">🌳 Parks</button><button class="chip" data-query="hospitals near me">✚ Hospitals</button></div>
-<div class="section-head"><h2>Plan a route</h2><span class="tiny">Walking / driving</span></div>
-<div class="searchbox"><form id="routeForm" class="route-fields"><div><label class="field-label" for="from">Starting point</label><input class="field" id="from" placeholder="Your current location" required></div><div class="field-row"><div style="flex:1;min-width:0"><label class="field-label" for="to">Destination</label><input class="field" id="to" placeholder="Where to?" required></div><button type="button" id="swapBtn" class="swap" aria-label="Swap start and destination">⇅</button></div><div class="field-row"><button class="primary" style="flex:1" type="submit">Show route ↗</button><select id="mode" class="field" style="width:120px" aria-label="Travel mode"><option value="driving">Driving route</option><option value="walking" disabled>Walking — coming soon</option><option value="cycling" disabled>Cycling — coming soon</option></select></div></form><div id="routeInfo" class="route-info"></div><section class="directions-panel" id="directionsPanel" hidden><div class="directions-title"><div><span class="eyebrow">YOUR JOURNEY</span><h3>Turn-by-turn directions</h3></div><button id="startNavBtn" class="primary" type="button">▶ Start navigation</button></div><div id="navStatus" class="nav-status">Plan a route to see every turn here.</div><ol id="stepsList" class="steps-list"></ol><button id="stopNavBtn" class="secondary full" type="button" hidden>Stop live navigation</button></section></div><section class="searchbox photo-assist"><div class="section-head"><h2>Find a place from a photo</h2><span class="tiny">On-device assist</span></div><p class="photo-help">Upload a road sign or landmark photo. WayFind can read visible text to help you search; a photo alone cannot pinpoint your location.</p><label class="photo-upload" for="roadPhoto"><span class="photo-symbol">⌁</span><span><strong>Upload road or landmark photo</strong><small>JPG, PNG or WEBP</small></span><input id="roadPhoto" type="file" accept="image/*" capture="environment"></label><img id="photoPreview" class="photo-preview" alt="Uploaded road or landmark preview" hidden><button id="readPhotoBtn" class="primary full" type="button" disabled>Read sign text</button><div id="photoStatus" class="photo-status" aria-live="polite"></div><textarea id="photoText" class="field photo-text" rows="3" placeholder="Recognized sign text will appear here. You can edit it before searching." hidden></textarea><button id="searchPhotoTextBtn" class="secondary full" type="button" hidden>Search this text</button></section>
-<div class="section-head"><h2>Saved places</h2><button class="tiny" id="clearSaved" style="background:transparent;color:var(--muted)">Clear</button></div><div id="savedList"><div class="saved-empty">Save places you want to revisit. Your list stays on this device.</div></div>
-<p class="note">Map data © OpenStreetMap contributors. Routes are provided by a community demo service and may be unavailable. Always follow local signs and road rules.</p>
-</aside>
-<section class="map-wrap" aria-label="Interactive map"><div id="map" role="application" aria-label="Interactive map. Use map controls to explore places."></div><div class="map-tools"><button class="secondary" id="saveViewBtn">☆ Save map view</button><button class="secondary" id="resetMapBtn">↺ Reset</button></div><div class="map-status" id="mapStatus"><strong>Ready when you are.</strong> Search a place or use your location to get started.</div></section></main>
-<nav class="mobile-nav" aria-label="Quick navigation"><button id="navMap"><span>⌖</span>Map</button><button id="navSearch"><span>⌕</span>Search</button><button id="navRoute"><span>↗</span>Route</button><button id="navSaved"><span>☆</span>Saved</button></nav><div class="toast" id="toast" role="status" aria-live="polite"></div></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<body>
+<div class="app-shell">
+  <header class="app-header">
+    <a class="brand" href="./" aria-label="WayFind home"><span class="brand-mark">↗</span><span><strong>WayFind</strong><small>YOUR WORLD, WITHIN REACH</small></span></a>
+    <div class="header-status"><span class="status-dot"></span><span id="connection">Ready to navigate</span></div>
+    <div class="header-actions"><button class="ghost-button" id="shareBtn">↗ <span>Share</span></button><button class="ghost-button" id="installBtn" hidden>＋ <span>Install</span></button></div>
+  </header>
+  <main class="navigation-layout">
+    <section class="navigation-stage" aria-label="Navigation view">
+      <div class="stage-grid" aria-hidden="true"></div>
+      <div class="stage-topline"><span class="live-pill"><i></i> WAYFIND LIVE</span><button class="icon-button" id="recenterBtn" aria-label="Recenter to current location">◎</button></div>
+      <div id="stageRoute" class="stage-route" aria-hidden="true">
+        <svg viewBox="0 0 600 620" preserveAspectRatio="xMidYMid meet">
+          <defs><linearGradient id="routeGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff0bc"/><stop offset="55%" stop-color="#d9ad5b"/><stop offset="100%" stop-color="#99702d"/></linearGradient><filter id="routeGlow"><feGaussianBlur stdDeviation="8"/></filter></defs>
+          <path class="route-underlay" d="M300 610 C300 520 270 485 310 420 S390 330 350 260 S245 160 302 90 S340 44 330 10"/>
+          <path class="route-line" d="M300 610 C300 520 270 485 310 420 S390 330 350 260 S245 160 302 90 S340 44 330 10"/>
+          <circle class="route-destination" cx="330" cy="18" r="10"/>
+          <g class="route-user" transform="translate(300 460)"><circle r="33" class="user-halo"/><circle r="19" class="user-disc"/><path d="M0 -12 L10 10 L0 5 L-10 10 Z" class="user-arrow"/></g>
+        </svg>
+      </div>
+      <div id="stageEmpty" class="stage-empty"><div class="empty-compass">⌖</div><span class="eyebrow">YOUR NEXT ADVENTURE</span><h1>Find your way.<br><em>Feel at home anywhere.</em></h1><p>Enter a destination to build your route, then follow every turn right here.</p><button class="gold-button" id="stageStartBtn">Plan my journey <span>↗</span></button></div>
+      <div id="stageNavigation" class="stage-navigation" hidden>
+        <div class="maneuver-card">
+          <div class="maneuver-icon" id="maneuverIcon">↱</div>
+          <div class="maneuver-copy"><span id="maneuverDistance">YOUR NEXT TURN</span><strong id="maneuverTitle">Continue on the road</strong><small id="maneuverRoad">Follow the highlighted route</small></div>
+          <button class="icon-button menu-button" id="directionsToggle" aria-label="Show all directions">☷</button>
+        </div>
+      </div>
+      <div class="stage-bottom">
+        <div class="gps-chip"><span class="gps-dot" id="gpsDot"></span><span id="gpsText">GPS not started</span></div>
+        <div class="compass-caption">ROAD GUIDANCE <span>·</span> BUILT FOR NEW CITIES</div>
+      </div>
+      <div class="stage-zoom"><button id="zoomOut" aria-label="Zoom out">−</button><button id="zoomIn" aria-label="Zoom in">＋</button></div>
+    </section>
+    <aside class="journey-panel" id="journeyPanel">
+      <div class="panel-heading"><span class="eyebrow">YOUR JOURNEY</span><h2>Where to next?</h2><p>Simple directions for places you don't know yet.</p></div>
+      <form id="routeForm" class="route-form">
+        <label class="field-label" for="from">STARTING POINT</label>
+        <div class="input-wrap"><span class="field-symbol start-symbol">●</span><input class="field" id="from" placeholder="Use my current location" autocomplete="off" required><button class="field-action" id="useGpsBtn" type="button" aria-label="Use current location">◎</button></div>
+        <div class="route-connector"><span></span></div>
+        <label class="field-label" for="to">DESTINATION</label>
+        <div class="input-wrap"><span class="field-symbol end-symbol">◆</span><input class="field" id="to" placeholder="Place, address or landmark" autocomplete="off" required><button class="field-action" id="swapBtn" type="button" aria-label="Swap start and destination">⇅</button></div>
+        <div class="route-options"><label class="field-label" for="mode">TRAVEL MODE</label><select id="mode" class="field"><option value="driving">🚗 Driving</option><option value="walking">🚶 Walking (not available yet)</option><option value="cycling">🚲 Cycling (not available yet)</option></select></div>
+        <button class="gold-button submit-route" type="submit" id="buildRouteBtn">Build my route <span>↗</span></button>
+      </form>
+      <button class="location-button" id="locateBtn">◎ <span>Find my current location</span></button>
+      <div id="routeSummary" class="route-summary" hidden><div><span class="summary-label">ESTIMATED JOURNEY</span><strong id="routeDistance">—</strong><small id="routeDuration">—</small></div><span class="summary-badge">ROAD ROUTE</span></div>
+      <div class="panel-divider"></div>
+      <section class="photo-section">
+        <div class="section-title"><div><span class="eyebrow">CAMERA ASSIST</span><h3>Lost in a new place?</h3></div><span class="camera-badge">⌕</span></div>
+        <p>Upload a road sign or landmark. WayFind reads visible text and helps you search it.</p>
+        <label class="photo-drop" for="roadPhoto"><span class="upload-symbol">＋</span><span><strong>Choose a road photo</strong><small>JPG, PNG or WEBP · up to 12 MB</small></span><input id="roadPhoto" type="file" accept="image/*" capture="environment"></label>
+        <img id="photoPreview" class="photo-preview" alt="Road photo preview" hidden>
+        <button id="readPhotoBtn" class="outline-button full-button" type="button" disabled>Read sign text</button>
+        <div id="photoStatus" class="photo-status" aria-live="polite"></div>
+        <textarea id="photoText" class="field photo-text" rows="2" placeholder="Detected text appears here. Edit it if needed." hidden></textarea>
+        <button id="searchPhotoTextBtn" class="outline-button full-button" type="button" hidden>Search detected text</button>
+      </section>
+      <section class="directions-section" id="directionsPanel" hidden>
+        <div class="section-title"><div><span class="eyebrow">STEP BY STEP</span><h3>Follow these turns</h3></div><button class="text-button" id="directionsTogglePanel">Hide</button></div>
+        <div id="navStatus" class="nav-status">Build a route to see the next turn.</div>
+        <ol id="stepsList" class="steps-list"></ol>
+        <div class="navigation-actions"><button id="startNavBtn" class="gold-button" type="button">▶ Start live guidance</button><button id="stopNavBtn" class="outline-button" type="button" hidden>Stop guidance</button></div>
+        <p class="safety-note">GPS guidance is an assistive prototype. Keep attention on the road and obey signs.</p>
+      </section>
+      <section class="saved-section"><div class="section-title"><div><span class="eyebrow">YOUR PLACES</span><h3>Saved locations</h3></div><button class="text-button" id="clearSaved">Clear</button></div><div id="savedList"><p class="saved-empty">Places you save on this device will appear here.</p></div></section>
+      <p class="data-note">Road geometry and place search use OpenStreetMap-compatible community services. Google Maps is not embedded or displayed in this interface.</p>
+    </aside>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <nav class="mobile-nav" aria-label="Quick navigation"><button id="navJourney"><span>⌖</span>Journey</button><button id="navDirections"><span>↱</span>Turns</button><button id="navPhoto"><span>▧</span>Photo</button><button id="navSaved"><span>☆</span>Saved</button></nav>
+</div>
 <script src="./script.js" defer></script>
-</body></html>
+</body>
+</html>
