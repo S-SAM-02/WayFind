@@ -123,6 +123,50 @@ $('clearSaved').onclick=()=>{localStorage.removeItem('wayfind-saved');renderSave
 $('resetMapBtn').onclick=()=>{if(routeLayer){map.removeLayer(routeLayer);routeLayer=null}if(destinationMarker){map.removeLayer(destinationMarker);destinationMarker=null}clearSearch();$('routeInfo').classList.remove('show');map.setView(userLocation?[userLocation.lat,userLocation.lon]:defaultView,userLocation?15:12);status('<strong>Map reset.</strong> Search a place or plan a route.');};
 $('shareBtn').onclick=async()=>{const data={title:'WayFind',text:'Find your way with WayFind',url:location.href};try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText(location.href);say('Link copied to clipboard.')}}catch(e){if(e.name!=='AbortError')say('Sharing is not available here.')}};
 $('navMap').onclick=()=>$('map').scrollIntoView({behavior:'smooth',block:'start'});$('navSearch').onclick=()=>{$('destination').focus();$('planner').scrollIntoView({behavior:'smooth',block:'start'})};$('navRoute').onclick=()=>$('from').focus();$('navSaved').onclick=()=>$('savedList').scrollIntoView({behavior:'smooth',block:'center'});
+let uploadedRoadPhoto=null,ocrLibraryPromise=null;
+$('roadPhoto').addEventListener('change',e=>{
+ const file=e.target.files&&e.target.files[0];if(!file)return;
+ if(!file.type.startsWith('image/')){say('Please choose an image file.');return}
+ if(file.size>12*1024*1024){say('Please use an image smaller than 12 MB.');return}
+ uploadedRoadPhoto=file;
+ const preview=$('photoPreview');preview.src=URL.createObjectURL(file);preview.hidden=false;
+ $('readPhotoBtn').disabled=false;$('photoText').hidden=true;$('searchPhotoTextBtn').hidden=true;
+ $('photoStatus').textContent='Photo ready. Text recognition runs in your browser using a downloadable OCR library.';
+});
+function loadOCR(){
+ if(ocrLibraryPromise)return ocrLibraryPromise;
+ ocrLibraryPromise=new Promise((resolve,reject)=>{
+  if(window.Tesseract)return resolve(window.Tesseract);
+  const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+  s.onload=()=>window.Tesseract?resolve(window.Tesseract):reject(new Error('Text recognition library did not load.'));
+  s.onerror=()=>reject(new Error('Could not load text recognition. Check your internet connection.'));
+  document.head.appendChild(s);
+ });
+ return ocrLibraryPromise;
+}
+$('readPhotoBtn').addEventListener('click',async()=>{
+ if(!uploadedRoadPhoto)return;
+ $('readPhotoBtn').disabled=true;$('photoStatus').textContent='Reading visible text from the photo… The first run may take a little longer.';
+ try{
+  const t=await loadOCR();
+  const result=await t.recognize(uploadedRoadPhoto,'eng',{logger:m=>{
+   if(m.status==='recognizing text')$('photoStatus').textContent='Reading sign text… '+Math.round((m.progress||0)*100)+'%';
+  }});
+  const textFound=(result.data.text||'').trim();
+  $('photoText').value=textFound;$('photoText').hidden=false;
+  $('searchPhotoTextBtn').hidden=false;
+  $('photoStatus').textContent=textFound?'Text found. Check the result, edit if needed, then search it.':'No clear text detected. Try a sharper photo of a sign with less glare.';
+  if(!textFound)$('photoText').focus();
+ }catch(err){$('photoStatus').textContent=err.message||'Text recognition failed. Try another photo.'}
+ finally{$('readPhotoBtn').disabled=false}
+});
+$('searchPhotoTextBtn').addEventListener('click',()=>{
+ const q=$('photoText').value.trim();
+ if(!q){say('No sign text to search. Enter a place or road name first.');return}
+ $('destination').value=q;
+ searchPlace(q);
+ $('destination').scrollIntoView({behavior:'smooth',block:'center'});
+});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('installBtn').hidden=false});$('installBtn').onclick=async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('installBtn').hidden=true};window.addEventListener('online',()=>$('connection').textContent='● Connected');window.addEventListener('offline',()=>$('connection').textContent='● Offline — map search needs internet');renderSaved();
 })();
 
