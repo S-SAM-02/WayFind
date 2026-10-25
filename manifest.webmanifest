@@ -1,14 +1,19 @@
 {
   "name": "WayFind — Find your way",
   "short_name": "WayFind",
-  "description": "Explore places and plan routes from your phone or desktop.",
+  "description": "A premium black-and-gold place discovery and route planning experience.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0b1222",
-  "theme_color": "#101c35",
+  "background_color": "#090909",
+  "theme_color": "#0b0a09",
   "orientation": "any",
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }
