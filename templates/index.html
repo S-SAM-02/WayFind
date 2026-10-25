@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1220">
+  <title>WayFind AI — Your local guide</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+  <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"> <span class="brand-mark">W</span> WayFind <span class="ai-label">AI</span></a>
+    <span class="top-note">Visual navigation prototype</span>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">EXPLORE WITH CONFIDENCE</p>
+      <h1>A local guide for <span>unfamiliar places.</span></h1>
+      <p class="intro">Upload a 360° panorama to explore your surroundings. WayFind is being built to recognise landmarks, understand signs, and help people navigate places they don't know.</p>
+    </section>
+
+    <section class="panel upload-panel" aria-labelledby="upload-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">STEP 01</p>
+          <h2 id="upload-heading">Upload your surroundings</h2>
+        </div>
+        <span class="pill">JPG / PNG · 20 MB max</span>
+      </div>
+
+      {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+      {% if success %}<div class="notice success" role="status">{{ success }}{% if image_dimensions %} Image size: {{ image_dimensions }}.{% endif %}</div>{% endif %}
+
+      <form action="/upload" method="post" enctype="multipart/form-data" class="upload-form">
+        <label class="dropzone" for="panorama">
+          <span class="upload-icon" aria-hidden="true">↥</span>
+          <strong>Choose a panorama image</strong>
+          <span id="file-name">Select an equirectangular 360° image from your device.</span>
+          <input id="panorama" type="file" name="panorama" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
+        </label>
+        <button class="primary-button" type="submit">Upload and explore <span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+
+    {% if image_url %}
+    <section class="panel viewer-panel" aria-labelledby="viewer-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">STEP 02</p>
+          <h2 id="viewer-heading">Explore the panorama</h2>
+        </div>
+        <span class="pill">Drag to look around</span>
+      </div>
+      <div id="panorama" aria-label="Interactive 360 degree panorama viewer"></div>
+      <p class="helper">Tip: drag the image to rotate your view and use the viewer controls to zoom.</p>
+    </section>
+    {% else %}
+    <section class="panel empty-state">
+      <div class="empty-icon" aria-hidden="true">◎</div>
+      <h2>Your surroundings, in every direction</h2>
+      <p>After uploading a panorama, you'll be able to explore it here. Sign recognition, visual location matching, route planning, and live guidance are planned next steps—not active features yet.</p>
+    </section>
+    {% endif %}
+
+    <section class="feature-grid" aria-label="Planned WayFind capabilities">
+      <article class="feature-card"><span>01</span><h3>See</h3><p>Detect signs, entrances, and landmarks from images.</p></article>
+      <article class="feature-card"><span>02</span><h3>Understand</h3><p>Read directional text and interpret destinations.</p></article>
+      <article class="feature-card"><span>03</span><h3>Guide</h3><p>Combine location and pedestrian routes into useful directions.</p></article>
+    </section>
+
+    <footer><span>WayFind AI · Student project prototype</span><span>Always verify directions in the real world.</span></footer>
+  </main>
+
+  {% if image_url %}
+  <script>
+    pannellum.viewer("panorama", {
+      type: "equirectangular",
+      panorama: {{ image_url|tojson }},
+      autoLoad: true,
+      showFullscreenCtrl: true,
+      compass: false
+    });
+  </script>
+  {% endif %}
+  <script>
+    const input = document.getElementById("panorama");
+    const fileName = document.getElementById("file-name");
+    if (input && fileName) {
+      input.addEventListener("change", () => {
+        fileName.textContent = input.files && input.files[0]
+          ? input.files[0].name
+          : "Select an equirectangular 360° image from your device.";
+      });
+    }
+  </script>
+</body>
+</html>
