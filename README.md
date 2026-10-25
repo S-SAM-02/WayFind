@@ -1,125 +1,83 @@
-# WayFind
+# WayFind Navigation
 
-**Find your way.** WayFind is a responsive place-discovery and route-planning web app built with HTML, CSS, JavaScript, Leaflet, and OpenStreetMap.
+WayFind is a navigation-first web app prototype designed to help people orient themselves in unfamiliar cities. The interface is inspired by mobile turn-by-turn navigation: a full navigation canvas, a prominent next-turn card, a clear trip planner, and optional road-sign photo assistance.
 
-## Features
+## Main features
 
-- Interactive, touch-friendly map with OpenStreetMap attribution.
-- Search for a place or address and show it on the map.
-- Optional browser geolocation, requested only after the user presses the location button.
-- Route planning for driving, walking, and cycling with distance and duration estimates.
-- Quick-search shortcuts for cafés, food, parks, and hospitals.
-- Save and revisit places using local browser storage.
-- Responsive layout for desktop, tablet, and mobile.
-- Share link and installable Progressive Web App (PWA) support.
-- Service-worker caching for the local app shell.
-- Optional Node.js preview server with no third-party dependencies.
-- No API key required for the starter version.
+- Navigation-first black-and-gold UI with no embedded Google Maps or Google Maps redirect.
+- Destination and starting point search using OpenStreetMap Nominatim.
+- Driving routes, distances, travel-time estimates and maneuver-by-maneuver steps using the public OSRM demo service.
+- Optional live GPS position tracking with explicit user permission.
+- Road sign/landmark image upload and in-browser OCR using Tesseract.js; detected text can be edited before searching.
+- Locally saved places and installable PWA shell.
+- Responsive desktop and mobile layouts.
+- Node.js static preview server with no npm runtime dependencies.
 
 ## Project structure
 
-- `index.html` — existing map interface.
-- `style.css` — existing responsive layout and styles.
-- `script.js` — existing map, place search, geolocation, routing, and interactions.
-- `server.js` — small Node.js server for local development.
-- `package.json` — project metadata and commands.
-- `manifest.webmanifest` and `sw.js` — PWA metadata and app-shell caching.
-- `tests/smoke-test.js` — basic project checks.
-- `.github/workflows/ci.yml` — automatic checks on pushes and pull requests.
+- `index.html` — main navigation interface.
+- `style.css` — responsive navigation-first styling.
+- `script.js` — route search, turn instructions, GPS watch, OCR and saved places.
+- `server.js` — optional Node.js preview server.
+- `package.json` — project commands.
+- `manifest.webmanifest`, `sw.js`, `icon.svg` — PWA files.
+- `tests/smoke-test.js` — structural checks.
+- `.github/workflows/ci.yml` — CI workflow.
+- `app.py`, `templates/`, `static/`, `requirements.txt` — separate experimental Flask panorama prototype; it is not used by the main navigation page.
 
-## New Python panorama prototype
+## Run locally
 
-The repository now also includes an early Flask-based WayFind AI prototype:
-
-- `app.py` — image upload endpoint and basic image validation.
-- `templates/index.html` — panorama upload interface and viewer.
-- `static/style.css` — responsive styles for the Python interface.
-- `requirements.txt` — Python dependencies.
-- `uploads/` — local upload storage, excluded from Git.
-
-The prototype accepts JPG/PNG files (maximum 20 MB) and displays suitable equirectangular panoramas using Pannellum. Its aspect-ratio check is only a heuristic; it cannot confirm that an image is a valid 360° panorama.
-
-**Not implemented yet:** object/sign detection, OCR, automatic visual localization, AI-generated route instructions, and live camera navigation. These are planned development stages, not active features.
-
-## Run the existing map application (Node.js)
-
-1. Install Node.js 18 or newer from https://nodejs.org/.
-2. Clone this repository.
-3. Open a terminal in the project folder.
-4. Run:
-
-    ```bash
-    npm start
-    ```
-
-5. Visit http://localhost:3000.
-
-There are no npm packages to install. Run the built-in checks with:
-
-    ```bash
-    npm run check
-    ```
-
-The static frontend can also be published with GitHub Pages using the existing repository setup. GitHub Pages does not run the Python Flask backend.
-
-## Run the Python panorama prototype
-
-Python 3.11+ is recommended.
-
-### Windows PowerShell
-
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-python app.py
-```
-
-### macOS/Linux
+Requires Node.js 18 or newer.
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-python app.py
+git clone https://github.com/S-SAM-02/WayFind.git
+cd WayFind
+npm start
 ```
 
-Open http://127.0.0.1:5000 in your browser. The Python app is separate from the existing Node.js map app; run one server at a time or use different ports.
+Open http://localhost:3000. To run local checks:
 
-The current Flask server is for local development only. Do not expose Flask's debug server publicly. For deployment, use a production WSGI server, appropriate upload access controls, and secure storage.
+```bash
+npm run check
+```
 
-## External services and limitations
+No `npm install` is required for the main static application.
 
-- **Map tiles:** OpenStreetMap. Keep attribution visible and follow the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
-- **Place search:** the public Nominatim endpoint is rate-limited and intended for moderate use. Read the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/).
-- **Routing:** the public OSRM demo endpoint is best-effort and may be unavailable or rate-limited. It is not a production service with an uptime guarantee.
-- **Panorama viewer:** Pannellum is loaded from jsDelivr in the prototype, so that viewer needs internet access.
-- **No production guarantee:** before a public launch, choose map, geocoding, and routing providers whose terms, privacy requirements, costs, and capacity fit expected traffic.
+## Deploy
+
+For the current static frontend, use GitHub Pages:
+1. Open **Settings → Pages**.
+2. Choose **Deploy from a branch**.
+3. Select `main` and `/(root)`.
+4. Save and wait for GitHub Pages to publish.
+
+GitHub Pages serves the static frontend; it does not run `server.js` or the Flask prototype. Geolocation and service workers require HTTPS or localhost.
+
+## External data and accuracy
+
+- **Search/geocoding:** public Nominatim. It is rate-limited and intended for moderate usage. Avoid autocomplete and follow its usage policy: https://operations.osmfoundation.org/policies/nominatim/
+- **Routing:** public OSRM demo service, best-effort and not production SLA-backed. The current main app supports driving routing only.
+- **Road data:** routes are computed from available community road-network data. Missing, outdated or restricted roads may produce incomplete routes.
+- **No Google Maps UI:** the main site does not embed Google Maps or link users to Google Maps for route completion. OpenStreetMap-derived data is still required for road geometry and routing.
+- **Photo assist:** OCR extracts visible text from a road-sign or landmark image. It does not identify exact image coordinates, guarantee the photographed location, detect all objects, or produce a route from pixels alone. The person using the app should review OCR results and confirm the destination.
+- **Live guidance:** browser GPS tracking updates the next-step panel based on proximity to maneuver points. This is an early prototype, not a turn-by-turn navigation system proven safe for driving. The current implementation does not provide voice guidance or reliable off-route rerouting yet.
 
 ## Privacy and safety
 
-- The existing map app requests geolocation only after the user presses the location button.
-- Searches and route coordinates may be sent to the configured public search/routing services.
-- Uploaded panorama images are stored locally in `uploads/`; remove them when no longer needed.
-- Do not upload images containing private or sensitive information.
-- Do not rely on an unverified visual match for safety-critical navigation. Ask the user to confirm uncertain locations and directions.
+- GPS is requested only after the user activates a location action or live guidance.
+- Search queries and route coordinates are sent to the public services listed above.
+- The OCR library is downloaded on demand. The image itself is processed in the browser by the OCR library and is not uploaded to a WayFind backend.
+- Do not use the prototype while interacting with a phone in motion. Follow traffic laws, road signs and your surroundings.
 
-## Working with a collaborator
+## Collaboration
 
-1. Add your teammate under **Settings → Collaborators** in GitHub.
-2. Both collaborators should pull the latest `main` branch before editing.
-3. Use separate branches for larger features and open pull requests for review.
-4. Avoid committing passwords, API keys, tokens, or private user data.
+Add collaborators through GitHub repository Settings → Collaborators. Pull the latest main branch before editing and use a branch/PR for substantial features. Never commit API keys, secrets, or user location history.
 
-## Roadmap
+## Next engineering milestones
 
-1. Improve panorama validation and add tests.
-2. Add sign/object detection and OCR with user correction.
-3. Build a reference-image dataset for known campus locations.
-4. Match uploaded scenes to known places with confidence thresholds.
-5. Integrate pedestrian routing and generate turn-by-turn instructions.
-6. Add mobile GPS, compass, camera capture, and live route updates.
-7. Evaluate localization, OCR, route accuracy, and failure cases.
-8. Add browser-based end-to-end and accessibility tests.
+1. Add route-matching against road geometry rather than only choosing the nearest upcoming maneuver.
+2. Add off-route detection and safe rerouting with hysteresis.
+3. Add speech announcements after extensive UX and accessibility testing.
+4. Integrate licensed/supportable pedestrian and cycling providers.
+5. Add image landmark localization only with reference datasets, uncertainty thresholds, and user confirmation.
+6. Add browser/device integration tests and route accuracy tests before a public navigation launch.
