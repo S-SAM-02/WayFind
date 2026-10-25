@@ -53,4 +53,6 @@ $('shareBtn').onclick=async()=>{const data={title:'WayFind',text:'Find your way 
 $('navMap').onclick=()=>$('map').scrollIntoView({behavior:'smooth',block:'start'});$('navSearch').onclick=()=>{$('destination').focus();$('planner').scrollIntoView({behavior:'smooth',block:'start'})};$('navRoute').onclick=()=>$('from').focus();$('navSaved').onclick=()=>$('savedList').scrollIntoView({behavior:'smooth',block:'center'});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('installBtn').hidden=false});$('installBtn').onclick=async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('installBtn').hidden=true};window.addEventListener('online',()=>$('connection').textContent='● Connected');window.addEventListener('offline',()=>$('connection').textContent='● Offline — map search needs internet');renderSaved();
 })();
-</script></body></html>
+</script>
+<script>if ('serviceWorker' in navigator && location.protocol.startsWith('http')) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {})); }</script>
+</body></html>
