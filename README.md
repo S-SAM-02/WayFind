@@ -1,54 +1,88 @@
 # WayFind
 
-**Find your way.** WayFind is a responsive, mobile-friendly place discovery and route-planning web app designed to work on phones, tablets, and desktop browsers.
+**Find your way.** WayFind is a responsive place-discovery and route-planning web app built with HTML, CSS, JavaScript, Leaflet, and OpenStreetMap.
 
 ## Features
 
-- Interactive, touch-friendly map powered by Leaflet and OpenStreetMap tiles.
+- Interactive, touch-friendly map with OpenStreetMap attribution.
 - Search for a place or address and show it on the map.
-- Optional browser geolocation; location permission is requested only after the user presses the location button.
-- Route planning for driving, walking, and cycling, with estimated distance and duration.
-- Quick search shortcuts for cafés, food, parks, and hospitals.
-- Save and revisit places using local device storage.
-- Responsive mobile layout, share link action, installable PWA manifest, and lightweight app-shell caching.
-- No API key or account required for this starter version.
+- Optional browser geolocation, requested only after the user presses the location button.
+- Route planning for driving, walking, and cycling with distance and duration estimates.
+- Quick-search shortcuts for cafés, food, parks, and hospitals.
+- Save and revisit places using local browser storage.
+- Responsive layout for desktop, tablet, and mobile.
+- Share link and installable Progressive Web App (PWA) support.
+- Service-worker caching for the local app shell.
+- Optional Node.js preview server with no third-party dependencies.
+- No API key required for the starter version.
 
-## Run locally
+## Project structure
 
-Open `index.html` through a local web server (recommended) or deploy the repository as a static site. Browser geolocation and service workers require a secure context such as HTTPS or localhost.
+- `index.html` — semantic page structure and interface.
+- `style.css` — responsive layout, theme, and component styles.
+- `script.js` — map, place search, geolocation, routing, saved places, and interactions.
+- `server.js` — small Node.js server for local development.
+- `package.json` — project metadata and commands.
+- `manifest.webmanifest` — installable PWA metadata.
+- `sw.js` — service worker for app-shell caching.
+- `icon.svg` — application icon.
+- `tests/smoke-test.js` — basic project structure and syntax checks.
+- `.github/workflows/ci.yml` — automatic checks on pushes and pull requests.
 
-For example, with Python installed:
+## Requirements
 
-```bash
-python -m http.server 8000
-```
+- Node.js 18 or newer (only needed for the optional local server and checks).
+- A modern browser.
+- Internet access for map tiles, geocoding, and route requests.
 
-Then open http://localhost:8000.
+## Run locally with Node.js
+
+1. Install Node.js 18 or newer from https://nodejs.org/.
+2. Clone this repository.
+3. Open a terminal in the project folder.
+4. Run:
+
+    npm start
+
+5. Visit http://localhost:3000.
+
+There are no npm packages to install. You can also run the built-in checks:
+
+    npm run check
+
+Browser geolocation and service workers work on secure contexts such as localhost and HTTPS. Opening the HTML file directly with a file URL is not recommended.
 
 ## Deploy with GitHub Pages
 
-1. Open **Settings → Pages** in this repository.
-2. Choose **Deploy from a branch**.
-3. Select `main` and `/ (root)`, then save.
-4. Wait for GitHub Pages to publish the site.
+1. Open this repository's **Settings → Pages**.
+2. Select **Deploy from a branch**.
+3. Choose the `main` branch and `/(root)`, then save.
+4. Wait for GitHub to publish the site.
 
-The site is static and does not require a build step.
+The frontend is static, so GitHub Pages does not run `server.js` and does not need Node.js to build the site. The same HTML, CSS, JavaScript, manifest, icon, and service worker can be served as static files.
 
-## Important service notes
+## External services and limitations
 
-- Map tiles: OpenStreetMap. Keep visible attribution and follow the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
-- Place search: the public Nominatim endpoint is used for direct, user-submitted searches. It is rate-limited and intended for moderate use; this demo deliberately does not implement autocomplete. Read the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/).
-- Routes: the public OSRM demo endpoint is best-effort and may be unavailable or rate-limited. It is not an SLA-backed production routing service. For a public or commercial launch, choose a supported provider or host services according to their terms.
-- The app shell can be cached, but live map tiles, place search, and routing require internet access.
-- The app opens external Google Maps directions only when the user presses the directions button. Route estimates are informational; follow road signs and local safety guidance.
+- **Map tiles:** OpenStreetMap. Keep attribution visible and follow the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
+- **Place search:** the public Nominatim endpoint is used for user-submitted searches. It is rate-limited and intended for moderate use. This demo deliberately avoids autocomplete. Read the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/).
+- **Routing:** the public OSRM demo endpoint is best-effort and may be unavailable or rate-limited. It is not a production service with an uptime guarantee.
+- **Internet required:** live map tiles, place search, and routing need internet access even when the app shell is cached.
+- **No production guarantee:** before a public or commercial launch, select providers whose usage terms, capacity, privacy terms, and costs fit your expected traffic. Do not assume public demo endpoints can support heavy usage.
 
 ## Privacy
 
-WayFind does not send location automatically. Geolocation is requested only after a user action. Saved places are stored in that browser's local storage and can be cleared from the Saved places section. Searches are sent to the configured public place-search service; routing coordinates are sent to the routing service. Review provider policies before production use.
+WayFind does not request location automatically. Geolocation is requested only after a user action. Saved places are stored in that browser's local storage and can be cleared from the Saved places section. Searches are sent to the configured public place-search service, and route coordinates are sent to the routing service. Review provider policies before a production launch.
 
-## Suggested production roadmap
+## Working with a collaborator
 
-- Replace public demo endpoints with production-supported map, geocoding, and routing providers.
-- Add automated tests and accessibility audits.
-- Add optional accounts and cross-device saved places only if needed, with clear consent and secure backend rules.
-- Add curated accessible-place information and verified opening hours through a licensed data source.
+1. Add your teammate under **Settings → Collaborators** in GitHub.
+2. Both collaborators should pull the latest `main` branch before editing.
+3. Use separate branches for larger features and open pull requests for review.
+4. Avoid committing passwords, API keys, tokens, or private user data.
+
+## Roadmap
+
+- Choose supported production map, geocoding, and routing providers.
+- Add browser-based end-to-end tests and accessibility checks.
+- Add optional accounts and cross-device saved places only if required, with consent and secure backend rules.
+- Add curated accessibility information and verified opening hours through a licensed data source.
