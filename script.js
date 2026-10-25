@@ -1,173 +1,40 @@
-/* WayFind map, search, routing, saved places, and PWA interactions */
+/* WayFind Navigation — custom in-site guidance, GPS and photo sign assist */
 (function(){
-const $=id=>document.getElementById(id);let userLocation=null,destinationMarker=null,routeLayer=null,searchMarkers=[],toastTimer,installPrompt=null;const defaultView=[12.9716,77.5946];
-const map=L.map('map',{zoomControl:false}).setView(defaultView,12);L.control.zoom({position:'bottomright'}).addTo(map);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
-const userIcon=L.divIcon({className:'',html:'<div style="width:18px;height:18px;background:#65e0c1;border:4px solid #fff;border-radius:50%;box-shadow:0 0 0 7px #65e0c144"></div>',iconSize:[18,18],iconAnchor:[9,9]});
-function say(msg){$('toast').textContent=msg;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2800)}
-function status(html){$('mapStatus').innerHTML=html}
+'use strict';
+const $=id=>document.getElementById(id);
+const state={origin:null,destination:null,route:null,steps:[],stepIndex:0,watchId:null,live:false,location:null,installPrompt:null,photo:null,ocrPromise:null};
+const savedKey='wayfind-saved';
 function safeText(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function clearSearch(){searchMarkers.forEach(m=>map.removeLayer(m));searchMarkers=[]}
-async function geocode(query){const q=query.trim();if(!q)throw Error('Enter a place to search.');const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q);const res=await fetch(url,{headers:{'Accept':'application/json'}});if(!res.ok)throw Error('Place search is temporarily unavailable. Try again shortly.');const data=await res.json();if(!data.length)throw Error('No matching place found. Try a more specific address.');return {lat:+data[0].lat,lon:+data[0].lon,name:data[0].display_name}}
-function addMarker(place,zoom=15){clearSearch();if(destinationMarker)map.removeLayer(destinationMarker);destinationMarker=L.marker([place.lat,place.lon]).addTo(map).bindPopup('<b>'+safeText(place.name)+'</b><br><button id="popupSave" class="secondary" style="margin-top:8px">☆ Save this place</button>');destinationMarker.on('popupopen',()=>{const b=document.getElementById('popupSave');if(b)b.onclick=()=>savePlace(place)});map.setView([place.lat,place.lon],zoom);destinationMarker.openPopup();$('to').value=place.name;$('destination').value=place.name;status('<strong>Place found.</strong> '+safeText(place.name));}
-async function searchPlace(q){try{status('<strong>Searching…</strong> Finding your place.');const p=await geocode(q);addMarker(p);say('Place found on the map.')}catch(e){status('<strong>Could not find that place.</strong> '+safeText(e.message));say(e.message)}}
-$('searchForm').addEventListener('submit',e=>{e.preventDefault();searchPlace($('destination').value)});
-document.querySelectorAll('[data-query]').forEach(b=>b.addEventListener('click',()=>{const q=b.dataset.query;if(userLocation){const suffix=' near '+userLocation.lat+','+userLocation.lon;searchPlace(q.replace(' near me',suffix))}else searchPlace(q.replace(' near me',' near Bengaluru'))}));
-function locate(){if(!navigator.geolocation){say('Location is not supported by this browser.');return}say('Requesting your location…');navigator.geolocation.getCurrentPosition(pos=>{userLocation={lat:pos.coords.latitude,lon:pos.coords.longitude};map.setView([userLocation.lat,userLocation.lon],16);if(window.userMarker)map.removeLayer(window.userMarker);window.userMarker=L.marker([userLocation.lat,userLocation.lon],{icon:userIcon}).addTo(map).bindPopup('You are here');$('from').value='My current location';status('<strong>You are here.</strong> Your location stays in this browser.');say('Your location is ready.')},err=>{say(err.code===1?'Location permission was denied. You can search an address instead.':'Could not get your location. Check GPS and try again.');},{enableHighAccuracy:true,timeout:12000,maximumAge:30000})}
-$('locateBtn').onclick=locate;
-let currentRouteSteps=[], liveWatchId=null, liveNavActive=false, currentStepIndex=0, navStart=null, navEnd=null, navRoute=null, navStepMarkers=[];
-function distanceMeters(a,b){const rad=x=>x*Math.PI/180;const dLat=rad(b.lat-a.lat),dLon=rad(b.lon-a.lon);const x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;return 6371000*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
-function maneuverText(step){
- const m=step.maneuver||{}, type=m.type||'continue', mod=m.modifier||'', road=step.name?(' onto '+step.name):'';
- if(type==='depart')return 'Start'+road;
- if(type==='arrive')return 'You have arrived at your destination';
- if(type==='turn')return 'Turn '+(mod||'ahead')+road;
- if(type==='end of road')return 'At the end of the road, turn '+(mod||'ahead')+road;
- if(type==='fork')return 'Keep '+(mod||'straight')+' at the fork'+road;
- if(type==='merge')return 'Merge '+(mod||'ahead')+road;
- if(type==='roundabout'||type==='rotary')return 'Enter the roundabout'+(m.exit?' and take exit '+m.exit:'')+road;
- if(type==='on ramp')return 'Take the ramp'+road;
- if(type==='off ramp')return 'Take the exit ramp'+road;
- if(type==='new name'||type==='continue')return 'Continue '+(mod||'straight')+road;
- return type.charAt(0).toUpperCase()+type.slice(1)+(mod?' '+mod:'')+road;
-}
-function renderSteps(steps){
- currentRouteSteps=steps||[];currentStepIndex=0;
- $('directionsPanel').hidden=false;
- $('stepsList').innerHTML=currentRouteSteps.map((s,i)=>'<li class="step-item" data-step="'+i+'"><span class="step-number">'+(i+1)+'</span><div class="step-copy"><strong>'+safeText(maneuverText(s))+'</strong><small>'+((s.distance/1000).toFixed(s.distance<1000?2:1))+' km · '+Math.max(1,Math.round((s.duration||0)/60))+' min estimated</small></div></li>').join('');
- $('navStatus').textContent='Route ready. Start navigation to follow your position and upcoming turns.';
-}
-function showCurrentStep(index){
- if(!currentRouteSteps.length)return;
- currentStepIndex=Math.max(0,Math.min(index,currentRouteSteps.length-1));
- document.querySelectorAll('.step-item').forEach((el,i)=>el.classList.toggle('active-step',i===currentStepIndex));
- const s=currentRouteSteps[currentStepIndex], coords=s.maneuver&&s.maneuver.location;
- $('navStatus').innerHTML='<strong>Next:</strong> '+safeText(maneuverText(s))+(coords?' <span>· '+(s.distance/1000).toFixed(2)+' km segment</span>':'');
- const active=document.querySelector('.active-step');if(active&&liveNavActive)active.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-function stopNavigation(){
- if(liveWatchId!==null&&navigator.geolocation)navigator.geolocation.clearWatch(liveWatchId);
- liveWatchId=null;liveNavActive=false;$('startNavBtn').hidden=false;$('startNavBtn').textContent='▶ Start navigation';$('stopNavBtn').hidden=true;
- if($('navStatus'))$('navStatus').textContent='Live navigation stopped. Your route is still available.';
-}
-$('routeForm').addEventListener('submit',async e=>{
- e.preventDefault();
- const from=$('from').value.trim(),to=$('to').value.trim();
- if(!from||!to)return;
- stopNavigation();
- try{
-  $('routeInfo').classList.remove('show');$('routeInfo').innerHTML='';
-  status('<strong>Planning your route…</strong> Getting roads and turn instructions.');
-  const a=from.toLowerCase()==='my current location'&&userLocation?{lat:userLocation.lat,lon:userLocation.lon,name:'My current location'}:await geocode(from);
-  const b=await geocode(to);
-  const requestedMode=$('mode').value;
-  // Public OSRM demo provides driving-road routes. Mode choices are preserved in UI,
-  // but the service's public endpoint may not support walking/cycling profiles.
-  const profile='driving';
-  const url='https://router.project-osrm.org/route/v1/'+profile+'/'+a.lon+','+a.lat+';'+b.lon+','+b.lat+'?overview=full&geometries=geojson&steps=true';
-  const res=await fetch(url);if(!res.ok)throw Error('The routing service is busy. Please try again.');
-  const data=await res.json();if(data.code!=='Ok'||!data.routes.length)throw Error('No route found. Try a more specific start and destination.');
-  const r=data.routes[0];navStart=a;navEnd=b;navRoute=r;
-  if(routeLayer)map.removeLayer(routeLayer);
-  navStepMarkers.forEach(m=>map.removeLayer(m));navStepMarkers=[];
-  routeLayer=L.geoJSON({type:'Feature',geometry:r.geometry},{style:{color:'#d9b66f',weight:6,opacity:.96,dashArray:null}}).addTo(map);
-  map.fitBounds(routeLayer.getBounds(),{padding:[35,35]});
-  L.marker([a.lat,a.lon]).addTo(map).bindPopup('Start: '+safeText(a.name));
-  L.marker([b.lat,b.lon]).addTo(map).bindPopup('Destination: '+safeText(b.name));
-  const legs=r.legs||[],steps=legs.flatMap(leg=>leg.steps||[]);
-  renderSteps(steps);
-  const km=(r.distance/1000).toFixed(1),mins=Math.round(r.duration/60),time=mins<60?mins+' min':Math.floor(mins/60)+' h '+mins%60+' min';
-  $('routeInfo').innerHTML='<strong>'+km+' km</strong><div>'+time+' estimated · road route</div><div class="route-disclaimer">Turn-by-turn instructions are shown below. Live guidance requires location permission and GPS.</div>';
-  $('routeInfo').classList.add('show');
-  showCurrentStep(0);
-  status('<strong>Route ready.</strong> '+km+' km · '+time+'. Follow the steps on this page.');
-  say('Route planned. Directions are ready below.');
-  $('directionsPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
- }catch(err){status('<strong>Route unavailable.</strong> '+safeText(err.message));say(err.message)}
-});
-$('startNavBtn').addEventListener('click',()=>{
- if(!currentRouteSteps.length||!navEnd){say('Plan a route first.');return}
- if(!navigator.geolocation){say('This browser does not support GPS navigation.');return}
- liveNavActive=true;$('startNavBtn').hidden=true;$('stopNavBtn').hidden=false;
- $('navStatus').textContent='Waiting for GPS location… Keep this page open while navigating.';
- liveWatchId=navigator.geolocation.watchPosition(pos=>{
-  const p={lat:pos.coords.latitude,lon:pos.coords.longitude};
-  userLocation=p;
-  if(window.userMarker){window.userMarker.setLatLng([p.lat,p.lon])}else{window.userMarker=L.marker([p.lat,p.lon],{icon:userIcon}).addTo(map).bindPopup('Your live location')}
-  const remaining=distanceMeters(p,navEnd);
-  if(remaining<35){showCurrentStep(currentRouteSteps.length-1);$('navStatus').innerHTML='<strong>You are near your destination.</strong> Check the address and surroundings before stopping.';return}
-  let nearest=currentStepIndex,best=Infinity;
-  for(let i=currentStepIndex;i<currentRouteSteps.length;i++){
-   const loc=currentRouteSteps[i].maneuver&&currentRouteSteps[i].maneuver.location;
-   if(!loc)continue;
-   const d=distanceMeters(p,{lat:loc[1],lon:loc[0]});
-   if(d<best){best=d;nearest=i}
-  }
-  if(nearest>currentStepIndex&&best<65)showCurrentStep(nearest);
-  const next=currentRouteSteps[currentStepIndex],loc=next&&next.maneuver&&next.maneuver.location;
-  const toTurn=loc?distanceMeters(p,{lat:loc[1],lon:loc[0]}):null;
-  $('navStatus').innerHTML='<strong>Live GPS active</strong><br>'+(toTurn!==null?'Next turn in about '+Math.round(toTurn)+' m · ':'')+'Destination about '+(remaining>=1000?(remaining/1000).toFixed(1)+' km':Math.round(remaining)+' m')+' away.';
-  if(pos.coords.accuracy>100)$('navStatus').innerHTML+='<br><small>GPS accuracy is low. Move to an open area for a better signal.</small>';
- },err=>{
-  $('navStatus').textContent=err.code===1?'Location permission denied. Allow location access to use live navigation.':'GPS signal unavailable. Check device location and try again.';
-  say('Live GPS could not update your position.');
- },{enableHighAccuracy:true,maximumAge:1500,timeout:15000});
-});
-$('stopNavBtn').addEventListener('click',stopNavigation);
-$('swapBtn').onclick=()=>{const a=$('from').value;$('from').value=$('to').value;$('to').value=a};
-function getSaved(){try{return JSON.parse(localStorage.getItem('wayfind-saved')||'[]')}catch{return []}}
-function savePlace(p){const saved=getSaved();if(saved.some(x=>Math.abs(x.lat-p.lat)<.00001&&Math.abs(x.lon-p.lon)<.00001)){say('This place is already saved.');return}saved.unshift({name:p.name,lat:p.lat,lon:p.lon});localStorage.setItem('wayfind-saved',JSON.stringify(saved.slice(0,30)));renderSaved();say('Place saved on this device.')}
-function renderSaved(){const list=getSaved();$('savedList').innerHTML=list.length?list.map((p,i)=>'<div class="place-card"><div class="place-icon">⌖</div><div style="min-width:0"><strong>'+safeText(p.name.split(',')[0])+'</strong><p>'+safeText(p.name.split(',').slice(1,3).join(',').trim()||'Saved location')+'</p></div><button data-open="'+i+'">View</button></div>').join():'<div class="saved-empty">Save places you want to revisit. Your list stays on this device.</div>';document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const p=getSaved()[+b.dataset.open];addMarker(p);$('planner').scrollIntoView({behavior:'smooth',block:'start'})})}
-$('saveViewBtn').onclick=()=>{if(!destinationMarker){say('Search for a place first, then save it.');return}const ll=destinationMarker.getLatLng();savePlace({lat:ll.lat,lon:ll.lng,name:$('destination').value||'Saved map location'})};
-$('clearSaved').onclick=()=>{localStorage.removeItem('wayfind-saved');renderSaved();say('Saved places cleared.')};
-$('resetMapBtn').onclick=()=>{if(routeLayer){map.removeLayer(routeLayer);routeLayer=null}if(destinationMarker){map.removeLayer(destinationMarker);destinationMarker=null}clearSearch();$('routeInfo').classList.remove('show');map.setView(userLocation?[userLocation.lat,userLocation.lon]:defaultView,userLocation?15:12);status('<strong>Map reset.</strong> Search a place or plan a route.');};
-$('shareBtn').onclick=async()=>{const data={title:'WayFind',text:'Find your way with WayFind',url:location.href};try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText(location.href);say('Link copied to clipboard.')}}catch(e){if(e.name!=='AbortError')say('Sharing is not available here.')}};
-$('navMap').onclick=()=>$('map').scrollIntoView({behavior:'smooth',block:'start'});$('navSearch').onclick=()=>{$('destination').focus();$('planner').scrollIntoView({behavior:'smooth',block:'start'})};$('navRoute').onclick=()=>$('from').focus();$('navSaved').onclick=()=>$('savedList').scrollIntoView({behavior:'smooth',block:'center'});
+function say(msg){$('toast').textContent=msg;$('toast').classList.add('show');clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>$('toast').classList.remove('show'),3000)}
+function setConnection(s){$('connection').textContent=s}
+function haversine(a,b){const r=n=>n*Math.PI/180,dl=r(b.lat-a.lat),dn=r(b.lon-a.lon),v=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dn/2)**2;return 6371000*2*Math.atan2(Math.sqrt(v),Math.sqrt(1-v))}
+async function geocode(q){const query=q.trim();if(!query)throw Error('Enter a place or address first.');const res=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(query),{headers:{Accept:'application/json'}});if(!res.ok)throw Error('Place search is busy. Try again shortly.');const data=await res.json();if(!data.length)throw Error('We could not find that place. Try a nearby landmark or full address.');return{lat:+data[0].lat,lon:+data[0].lon,name:data[0].display_name}}
+function updateGpsVisual(p){state.location=p;$('gpsDot').classList.add('active');$('gpsText').textContent='GPS ready · ±'+Math.round(p.accuracy||0)+' m';const u=$('stageRoute').querySelector('.route-user');if(u)u.style.display='block';}
+function requestLocation(onSuccess){if(!navigator.geolocation){say('This device does not support GPS location.');return}$('gpsText').textContent='Requesting GPS permission…';navigator.geolocation.getCurrentPosition(pos=>{const p={lat:pos.coords.latitude,lon:pos.coords.longitude,name:'My current location',accuracy:pos.coords.accuracy};updateGpsVisual(p);$('from').value='My current location';if(onSuccess)onSuccess(p);else say('Your current location is ready.')},err=>{$('gpsDot').classList.remove('active');$('gpsText').textContent='GPS unavailable';say(err.code===1?'Allow location access to use GPS navigation.':'Location unavailable. Check GPS and try again.')},{enableHighAccuracy:true,timeout:15000,maximumAge:5000})}
+function turnInfo(step){const m=step.maneuver||{},type=m.type||'continue',mod=m.modifier||'',road=step.name?' onto '+step.name:'';if(type==='depart')return{icon:'↑',text:'Start'+road};if(type==='arrive')return{icon:'✓',text:'You have arrived'};if(type==='turn'||type==='end of road')return{icon:mod.includes('left')?'↰':mod.includes('right')?'↱':'↑',text:(type==='end of road'?'At the end of the road, turn ':'Turn ')+(mod||'ahead')+road};if(type==='fork')return{icon:mod.includes('left')?'↖':mod.includes('right')?'↗':'↑',text:'Keep '+(mod||'straight')+' at the fork'+road};if(type==='merge')return{icon:'⇢',text:'Merge '+(mod||'ahead')+road};if(type==='roundabout'||type==='rotary')return{icon:'⟳',text:'Enter roundabout'+(m.exit?' · take exit '+m.exit:'')+road};if(type==='on ramp')return{icon:'↗',text:'Take the ramp'+road};if(type==='off ramp')return{icon:'↘',text:'Take the exit'+road};if(type==='new name'||type==='continue')return{icon:'↑',text:'Continue '+(mod||'straight')+road};return{icon:'↑',text:type.charAt(0).toUpperCase()+type.slice(1)+(mod?' '+mod:'')+road}}
+function updateTurn(i){if(!state.steps.length)return;state.stepIndex=Math.max(0,Math.min(i,state.steps.length-1));const s=state.steps[state.stepIndex],turn=turnInfo(s);$('maneuverIcon').textContent=turn.icon;$('maneuverDistance').textContent=s.distance>=1000?(s.distance/1000).toFixed(1)+' KM SEGMENT':Math.round(s.distance)+' M SEGMENT';$('maneuverTitle').textContent=turn.text;$('maneuverRoad').textContent=s.name||'Follow the highlighted route';$('navStatus').innerHTML='<strong>Next:</strong> '+safeText(turn.text)+' · '+Math.round(s.distance)+' m segment';document.querySelectorAll('.step-item').forEach((el,k)=>el.classList.toggle('active-step',k===state.stepIndex));}
+function renderTurns(steps){state.steps=steps||[];state.stepIndex=0;$('stepsList').innerHTML=state.steps.map((s,i)=>{const t=turnInfo(s);return'<li class="step-item" data-step="'+i+'"><span class="step-number">'+(i+1)+'</span><div class="step-copy"><strong>'+safeText(t.icon+'  '+t.text)+'</strong><small>'+((s.distance/1000).toFixed(s.distance<1000?2:1))+' km · '+Math.max(1,Math.round((s.duration||0)/60))+' min estimated</small></div></li>'}).join('');$('directionsPanel').hidden=!state.steps.length;if(state.steps.length)updateTurn(0)}
+function setRouteVisual(){ $('stageEmpty').hidden=true;$('stageRoute').hidden=false;$('stageNavigation').hidden=false;}
+function stopLive(){if(state.watchId!==null&&navigator.geolocation)navigator.geolocation.clearWatch(state.watchId);state.watchId=null;state.live=false;$('startNavBtn').hidden=false;$('stopNavBtn').hidden=true;$('gpsText').textContent=state.location?'GPS paused':'GPS not started'}
+function drawRoute(coords){if(!coords||coords.length<2)return;const svg=$('stageRoute').querySelector('svg'),w=600,h=620,pad=65,lons=coords.map(p=>p[0]),lats=coords.map(p=>p[1]),minX=Math.min(...lons),maxX=Math.max(...lons),minY=Math.min(...lats),maxY=Math.max(...lats),dx=maxX-minX||.0001,dy=maxY-minY||.0001;const pts=coords.filter((_,i)=>i%Math.max(1,Math.ceil(coords.length/110))===0);if(pts[pts.length-1]!==coords[coords.length-1])pts.push(coords[coords.length-1]);const path=pts.map((p,i)=>{const x=pad+(p[0]-minX)/dx*(w-pad*2),y=h-pad-(p[1]-minY)/dy*(h-pad*2);return(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}).join(' ');svg.querySelector('.route-line').setAttribute('d',path);svg.querySelector('.route-underlay').setAttribute('d',path);const point=p=>({x:pad+(p[0]-minX)/dx*(w-pad*2),y:h-pad-(p[1]-minY)/dy*(h-pad*2)}),start=point(pts[0]),end=point(pts[pts.length-1]);svg.querySelector('.route-destination').setAttribute('cx',end.x);svg.querySelector('.route-destination').setAttribute('cy',end.y);svg.querySelector('.route-user').setAttribute('transform','translate('+start.x+' '+start.y+')')}
+async function buildRoute(e){if(e)e.preventDefault();const from=$('from').value.trim(),to=$('to').value.trim();if(!from||!to){say('Enter both a starting point and destination.');return}if($('mode').value!=='driving'){say('Walking and cycling route providers are not connected yet. Please select driving.');$('mode').value='driving';return}stopLive();$('buildRouteBtn').disabled=true;$('buildRouteBtn').textContent='Finding route…';setConnection('Planning route');try{const a=from.toLowerCase().includes('current location')&&state.location?{...state.location,name:'My current location'}:await geocode(from);const b=await geocode(to);state.origin=a;state.destination=b;const url='https://router.project-osrm.org/route/v1/driving/'+a.lon+','+a.lat+';'+b.lon+','+b.lat+'?overview=full&geometries=geojson&steps=true';const res=await fetch(url);if(!res.ok)throw Error('Road routing is unavailable right now. Please retry shortly.');const result=await res.json();if(result.code!=='Ok'||!result.routes||!result.routes.length)throw Error('No driving route found between those places.');state.route=result.routes[0];renderTurns((state.route.legs||[]).flatMap(leg=>leg.steps||[]));setRouteVisual();const km=(state.route.distance/1000).toFixed(1),mins=Math.round(state.route.duration/60),duration=mins<60?mins+' min':Math.floor(mins/60)+' h '+mins%60+' min;$('routeDistance').textContent=km+' km';$('routeDuration').textContent=duration+' estimated';$('routeSummary').hidden=false;drawRoute(state.route.geometry.coordinates);setConnection('Route ready');$('gpsText').textContent='Route ready · GPS not started';$('navStatus').innerHTML='<strong>Route ready.</strong> Press Start live guidance to follow your GPS position. Keep this page open.';$('directionsPanel').hidden=false;$('directionsPanel').scrollIntoView({behavior:'smooth',block:'nearest'});say('Your route is ready. Turn-by-turn steps are shown on WayFind.')}catch(err){setConnection('Ready to navigate');say(err.message||'Could not build route.');$('navStatus').textContent=err.message||'Could not build route.'}finally{$('buildRouteBtn').disabled=false;$('buildRouteBtn').innerHTML='Build my route <span>↗</span>'}}
+function startLive(){if(!state.steps.length||!state.destination){say('Build a route before starting live guidance.');return}if(!navigator.geolocation){say('GPS is not available in this browser.');return}state.live=true;$('startNavBtn').hidden=true;$('stopNavBtn').hidden=false;$('gpsText').textContent='Waiting for live GPS…';state.watchId=navigator.geolocation.watchPosition(pos=>{const p={lat:pos.coords.latitude,lon:pos.coords.longitude,name:'My current location',accuracy:pos.coords.accuracy};updateGpsVisual(p);const remaining=haversine(p,state.destination);if(remaining<30){$('maneuverIcon').textContent='✓';$('maneuverDistance').textContent='DESTINATION NEARBY';$('maneuverTitle').textContent='You are near your destination';$('maneuverRoad').textContent='Check the address and surroundings before stopping';$('navStatus').innerHTML='<strong>Arrived nearby.</strong> Verify the entrance and address before stopping.';return}let bestIndex=state.stepIndex,bestDistance=Infinity;for(let i=state.stepIndex;i<state.steps.length;i++){const loc=state.steps[i].maneuver&&state.steps[i].maneuver.location;if(!loc)continue;const d=haversine(p,{lat:loc[1],lon:loc[0]});if(d<bestDistance){bestDistance=d;bestIndex=i}}if(bestIndex>state.stepIndex&&bestDistance<45)updateTurn(bestIndex);$('navStatus').innerHTML='<strong>Live GPS active.</strong> Destination approximately '+(remaining>1000?(remaining/1000).toFixed(1)+' km':Math.round(remaining)+' m')+' away.'+(pos.coords.accuracy>100?'<br>GPS is imprecise right now; move to a clearer area.':'')},err=>{state.live=false;$('gpsText').textContent='GPS signal lost';$('navStatus').textContent=err.code===1?'Location permission was denied. Allow GPS access to navigate live.':'GPS signal unavailable. Check device location and try again.';say('GPS position could not be updated.')},{enableHighAccuracy:true,maximumAge:1500,timeout:15000})}
+function getSaved(){try{return JSON.parse(localStorage.getItem(savedKey)||'[]')}catch{return[]}}
+function savePlace(p){const list=getSaved();if(list.some(x=>Math.abs(x.lat-p.lat)<.00001&&Math.abs(x.lon-p.lon)<.00001)){say('This place is already saved.');return}list.unshift({name:p.name,lat:p.lat,lon:p.lon});localStorage.setItem(savedKey,JSON.stringify(list.slice(0,30)));renderSaved();say('Place saved on this device.')}
+function renderSaved(){const list=getSaved();$('savedList').innerHTML=list.length?list.map((p,i)=>'<div class="place-card"><div class="place-icon">⌖</div><div><strong>'+safeText(p.name.split(',')[0])+'</strong><p>'+safeText(p.name.split(',').slice(1,3).join(',').trim()||'Saved location')+'</p></div><button data-open="'+i+'">Use</button></div>').join():'<p class="saved-empty">Places you save on this device will appear here.</p>';document.querySelectorAll('[data-open]').forEach(btn=>btn.addEventListener('click',()=>{const p=getSaved()[Number(btn.dataset.open)];$('to').value=p.name;say('Destination filled. Press Build my route.');$('journeyPanel').scrollIntoView({behavior:'smooth'})}))}
 let uploadedRoadPhoto=null,ocrLibraryPromise=null;
-$('roadPhoto').addEventListener('change',e=>{
- const file=e.target.files&&e.target.files[0];if(!file)return;
- if(!file.type.startsWith('image/')){say('Please choose an image file.');return}
- if(file.size>12*1024*1024){say('Please use an image smaller than 12 MB.');return}
- uploadedRoadPhoto=file;
- const preview=$('photoPreview');preview.src=URL.createObjectURL(file);preview.hidden=false;
- $('readPhotoBtn').disabled=false;$('photoText').hidden=true;$('searchPhotoTextBtn').hidden=true;
- $('photoStatus').textContent='Photo ready. Text recognition runs in your browser using a downloadable OCR library.';
-});
-function loadOCR(){
- if(ocrLibraryPromise)return ocrLibraryPromise;
- ocrLibraryPromise=new Promise((resolve,reject)=>{
-  if(window.Tesseract)return resolve(window.Tesseract);
-  const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-  s.onload=()=>window.Tesseract?resolve(window.Tesseract):reject(new Error('Text recognition library did not load.'));
-  s.onerror=()=>reject(new Error('Could not load text recognition. Check your internet connection.'));
-  document.head.appendChild(s);
- });
- return ocrLibraryPromise;
-}
-$('readPhotoBtn').addEventListener('click',async()=>{
- if(!uploadedRoadPhoto)return;
- $('readPhotoBtn').disabled=true;$('photoStatus').textContent='Reading visible text from the photo… The first run may take a little longer.';
- try{
-  const t=await loadOCR();
-  const result=await t.recognize(uploadedRoadPhoto,'eng',{logger:m=>{
-   if(m.status==='recognizing text')$('photoStatus').textContent='Reading sign text… '+Math.round((m.progress||0)*100)+'%';
-  }});
-  const textFound=(result.data.text||'').trim();
-  $('photoText').value=textFound;$('photoText').hidden=false;
-  $('searchPhotoTextBtn').hidden=false;
-  $('photoStatus').textContent=textFound?'Text found. Check the result, edit if needed, then search it.':'No clear text detected. Try a sharper photo of a sign with less glare.';
-  if(!textFound)$('photoText').focus();
- }catch(err){$('photoStatus').textContent=err.message||'Text recognition failed. Try another photo.'}
- finally{$('readPhotoBtn').disabled=false}
-});
-$('searchPhotoTextBtn').addEventListener('click',()=>{
- const q=$('photoText').value.trim();
- if(!q){say('No sign text to search. Enter a place or road name first.');return}
- $('destination').value=q;
- searchPlace(q);
- $('destination').scrollIntoView({behavior:'smooth',block:'center'});
-});
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('installBtn').hidden=false});$('installBtn').onclick=async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('installBtn').hidden=true};window.addEventListener('online',()=>$('connection').textContent='● Connected');window.addEventListener('offline',()=>$('connection').textContent='● Offline — map search needs internet');renderSaved();
+$('roadPhoto').addEventListener('change',e=>{const file=e.target.files&&e.target.files[0];if(!file)return;if(!file.type.startsWith('image/')){say('Please choose an image file.');return}if(file.size>12*1024*1024){say('Choose an image smaller than 12 MB.');return}uploadedRoadPhoto=file;$('photoPreview').src=URL.createObjectURL(file);$('photoPreview').hidden=false;$('readPhotoBtn').disabled=false;$('photoText').hidden=true;$('searchPhotoTextBtn').hidden=true;$('photoStatus').textContent='Image ready. Read visible sign text using browser-based OCR.'});
+function loadOCR(){if(ocrLibraryPromise)return ocrLibraryPromise;ocrLibraryPromise=new Promise((resolve,reject)=>{if(window.Tesseract)return resolve(window.Tesseract);const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';s.onload=()=>window.Tesseract?resolve(window.Tesseract):reject(Error('OCR library unavailable'));s.onerror=()=>reject(Error('Could not load OCR. Check your internet connection.'));document.head.appendChild(s)});return ocrLibraryPromise}
+$('readPhotoBtn').addEventListener('click',async()=>{if(!uploadedRoadPhoto)return;$('readPhotoBtn').disabled=true;$('photoStatus').textContent='Reading sign text… First use may take longer.';try{const t=await loadOCR();const r=await t.recognize(uploadedRoadPhoto,'eng',{logger:m=>{if(m.status==='recognizing text')$('photoStatus').textContent='Reading sign text · '+Math.round((m.progress||0)*100)+'%'}});const text=(r.data.text||'').trim();$('photoText').value=text;$('photoText').hidden=false;$('searchPhotoTextBtn').hidden=false;$('photoStatus').textContent=text?'Review the detected text and correct it before searching.':'No clear text detected. Try a sharper sign photo with less glare.'}catch(err){$('photoStatus').textContent=err.message||'Text recognition failed.'}finally{$('readPhotoBtn').disabled=false}});
+$('searchPhotoTextBtn').addEventListener('click',()=>{const q=$('photoText').value.trim();if(!q){say('Enter or correct the sign text first.');return}$('to').value=q;$('journeyPanel').scrollIntoView({behavior:'smooth'});geocode(q).then(p=>{state.destination=p;say('Place found. Confirm the starting point and build your route.')}).catch(err=>say(err.message))});
+$('routeForm').addEventListener('submit',buildRoute);$('startNavBtn').addEventListener('click',startLive);$('stopNavBtn').addEventListener('click',stopLive);
+$('locateBtn').addEventListener('click',()=>requestLocation(()=>say('Location filled into your starting point.')));$('useGpsBtn').addEventListener('click',()=>requestLocation());$('recenterBtn').addEventListener('click',()=>state.location?say('Your GPS location is ready.'):requestLocation());
+$('stageStartBtn').addEventListener('click',()=>$('journeyPanel').scrollIntoView({behavior:'smooth',block:'start'}));$('directionsToggle').addEventListener('click',()=>{$('directionsPanel').hidden=!$('directionsPanel').hidden;$('directionsPanel').scrollIntoView({behavior:'smooth',block:'nearest'})});$('directionsTogglePanel').addEventListener('click',()=>$('directionsPanel').hidden=true);
+$('swapBtn').addEventListener('click',()=>{const a=$('from').value;$('from').value=$('to').value;$('to').value=a});$('clearSaved').addEventListener('click',()=>{localStorage.removeItem(savedKey);renderSaved();say('Saved places cleared.')});
+$('shareBtn').addEventListener('click',async()=>{try{if(navigator.share)await navigator.share({title:'WayFind',text:'Find your way with WayFind',url:location.href});else{await navigator.clipboard.writeText(location.href);say('WayFind link copied.')}}catch(e){if(e.name!=='AbortError')say('Sharing is unavailable in this browser.')}});
+$('navJourney').addEventListener('click',()=>$('journeyPanel').scrollIntoView({behavior:'smooth',block:'start'}));$('navDirections').addEventListener('click',()=>{if($('directionsPanel').hidden)say('Build a route first to see turns.');else $('directionsPanel').scrollIntoView({behavior:'smooth',block:'start'})});$('navPhoto').addEventListener('click',()=>$('roadPhoto').click());$('navSaved').addEventListener('click',()=>$('savedList').scrollIntoView({behavior:'smooth',block:'start'}));
+$('zoomIn').addEventListener('click',()=>say('This is a simplified schematic route display, not a detailed street map.'));$('zoomOut').addEventListener('click',()=>say('This is a simplified schematic route display, not a detailed street map.'));
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();state.installPrompt=e;$('installBtn').hidden=false});$('installBtn').addEventListener('click',async()=>{if(!state.installPrompt)return;state.installPrompt.prompt();await state.installPrompt.userChoice;state.installPrompt=null;$('installBtn').hidden=true});
+window.addEventListener('online',()=>setConnection('Online'));window.addEventListener('offline',()=>setConnection('Offline · routes need internet'));renderSaved();$('stageRoute').hidden=true;$('stageNavigation').hidden=true;
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 })();
-
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {})); }
