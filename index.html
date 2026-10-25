@@ -7,7 +7,9 @@
 <meta name="description" content="WayFind is a live navigation companion with clear turns, GPS guidance, and photo-assisted sign reading.">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css">
 <link rel="stylesheet" href="./style.css">
+<script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" defer></script>
 <title>WayFind — Live navigation</title>
 </head>
 <body>
@@ -21,15 +23,8 @@
     <section class="navigation-stage" aria-label="Navigation view">
       <div class="stage-grid" aria-hidden="true"></div>
       <div class="stage-topline"><span class="live-pill"><i></i> WAYFIND LIVE</span><button class="icon-button" id="recenterBtn" aria-label="Recenter to current location">◎</button></div>
-      <div id="stageRoute" class="stage-route" aria-hidden="true">
-        <svg viewBox="0 0 600 620" preserveAspectRatio="xMidYMid meet">
-          <defs><linearGradient id="routeGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff0bc"/><stop offset="55%" stop-color="#d9ad5b"/><stop offset="100%" stop-color="#99702d"/></linearGradient><filter id="routeGlow"><feGaussianBlur stdDeviation="8"/></filter></defs>
-          <path class="route-underlay" d="M300 610 C300 520 270 485 310 420 S390 330 350 260 S245 160 302 90 S340 44 330 10"/>
-          <path class="route-line" d="M300 610 C300 520 270 485 310 420 S390 330 350 260 S245 160 302 90 S340 44 330 10"/>
-          <circle class="route-destination" cx="330" cy="18" r="10"/>
-          <g class="route-user" transform="translate(300 460)"><circle r="33" class="user-halo"/><circle r="19" class="user-disc"/><path d="M0 -12 L10 10 L0 5 L-10 10 Z" class="user-arrow"/></g>
-        </svg>
-      </div>
+      <div id="roadMap" class="road-map" role="application" aria-label="Interactive road map. Drag to pan, use plus and minus to zoom."></div>
+      <div id="mapMessage" class="map-message" hidden>Loading street map…</div>
       <div id="stageEmpty" class="stage-empty"><div class="empty-compass">⌖</div><span class="eyebrow">YOUR NEXT ADVENTURE</span><h1>Find your way.<br><em>Feel at home anywhere.</em></h1><p>Enter a destination to build your route, then follow every turn right here.</p><button class="gold-button" id="stageStartBtn">Plan my journey <span>↗</span></button></div>
       <div id="stageNavigation" class="stage-navigation" hidden>
         <div class="maneuver-card">
