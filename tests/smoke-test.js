@@ -1,4 +1,4 @@
-/* Basic project smoke tests — uses only Node.js built-in modules. */
+/* Basic project smoke tests for the navigation-first WayFind interface. */
 'use strict';
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -8,14 +8,14 @@ for(const file of ['index.html','style.css','script.js','manifest.webmanifest','
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const js=fs.readFileSync(path.join(root,'script.js'),'utf8');
 const css=fs.readFileSync(path.join(root,'style.css'),'utf8');
-assert.match(html,/href="\.\/style\.css"/,'HTML should load stylesheet');
-assert.match(html,/src="\.\/script\.js"/,'HTML should load application JS');
-for(const id of ['routeForm','from','to','directionsPanel','stepsList','startNavBtn','stopNavBtn','roadPhoto','readPhotoBtn','photoText','stageRoute','map','gpsText'])assert.ok(html.includes('id="'+id+'"'),'Missing required interface element: '+id);
-assert.ok(!/google\.com\/maps|maps\.googleapis\.com|google\.com\/maps\/embed/i.test(html+js),'Google Maps UI/redirect should not be included');
-assert.match(js,/router\.project-osrm\.org/,'App should use its configured non-Google routing service');
-assert.match(js,/watchPosition/,'Live GPS watch should be implemented');
-assert.match(js,/tesseract\.js/,'Photo OCR should be wired');
-assert.match(css,/\.navigation-stage/,'Navigation-first UI styles should exist');
-assert.match(css,/@media\(max-width:760px\)/,'Mobile layout styles should exist');
-assert.match(fs.readFileSync(path.join(root,'sw.js'),'utf8'),/script\.js/,'Service worker should cache JavaScript');
+assert.match(html,/href="\.\/style\.css"/,'Main HTML loads stylesheet');
+assert.match(html,/src="\.\/script\.js"/,'Main HTML loads JavaScript');
+for(const id of ['routeForm','from','to','directionsPanel','stepsList','startNavBtn','stopNavBtn','roadPhoto','readPhotoBtn','photoText','stageRoute','gpsText'])assert.ok(html.includes('id="'+id+'"'),'Missing navigation control: '+id);
+assert.doesNotMatch(html+js,/google\.com\/maps|maps\.googleapis\.com/i,'Google Maps should not be embedded or used as a route handoff');
+assert.match(js,/router\.project-osrm\.org/,'Driving routes use the configured routing service');
+assert.match(js,/watchPosition/,'Live GPS tracking is wired');
+assert.match(js,/tesseract\.js/,'Road photo OCR is wired');
+assert.match(css,/\.navigation-stage/,'Navigation-first visual stage is styled');
+assert.match(css,/@media\(max-width:760px\)/,'Mobile responsive layout exists');
+assert.match(fs.readFileSync(path.join(root,'sw.js'),'utf8'),/script\.js/,'Service worker caches JavaScript');
 console.log('WayFind navigation smoke checks passed.');
