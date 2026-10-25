@@ -238,3 +238,136 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
   html{scroll-behavior:auto}
   *,*::before,*::after{transition:none!important;animation:none!important}
 }
+
+
+/* Layout correction: lead with the product, not a giant map.
+   The discovery/planning interface is now the first thing visitors see;
+   the interactive map becomes a useful, secondary section below it. */
+.app{
+  display:flex;
+  flex-direction:column;
+  min-height:100dvh;
+  height:auto;
+}
+.topbar{
+  position:sticky;
+  top:0;
+  flex:0 0 auto;
+  min-height:76px;
+}
+.layout{
+  display:flex;
+  flex-direction:column;
+  flex:1 0 auto;
+  height:auto;
+  min-height:0;
+  overflow:visible;
+  background:transparent;
+}
+.sidebar{
+  order:1;
+  width:min(100%,1180px);
+  margin:0 auto;
+  padding:clamp(28px,4vw,56px) clamp(20px,5vw,76px) 42px;
+  border:0;
+  background:
+    radial-gradient(ellipse at 12% 0%,rgba(199,157,78,.10),transparent 45%),
+    linear-gradient(180deg,#100f0c 0%,#0b0a09 100%);
+  overflow:visible;
+}
+.headline{
+  max-width:720px;
+  font-size:clamp(38px,5vw,64px);
+  line-height:1.02;
+  letter-spacing:-2.8px;
+  margin-top:15px;
+}
+.sub{
+  max-width:570px;
+  font-size:16px;
+  margin-bottom:28px;
+}
+.searchbox{
+  max-width:760px;
+  padding:22px;
+  border-radius:22px;
+}
+.searchbox .field-row{gap:10px}
+.searchbox .field{min-width:0}
+.searchbox .secondary.full{max-width:100%}
+.quick{
+  max-width:760px;
+  margin:17px 0 30px;
+}
+.section-head{
+  max-width:760px;
+  margin:28px 0 13px;
+}
+#routeForm,.searchbox:has(#routeForm){max-width:760px}
+#routeForm{gap:15px}
+#routeInfo:empty{display:none}
+#savedList{max-width:760px}
+.note{max-width:760px;margin-top:28px}
+.map-wrap{
+  order:2;
+  position:relative;
+  width:100%;
+  height:clamp(300px,42vw,500px);
+  min-height:300px;
+  flex:0 0 auto;
+  border-top:1px solid rgba(217,182,111,.3);
+  background:#11100d;
+}
+#map{width:100%;height:100%;min-height:300px}
+.map-tools{top:16px;right:clamp(12px,2vw,26px)}
+.map-status{bottom:16px;left:clamp(12px,2vw,26px)}
+.mobile-nav{position:sticky;bottom:0;z-index:600;flex:0 0 auto}
+@media(min-width:1000px){
+  .sidebar{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(340px,.82fr);
+    column-gap:clamp(28px,5vw,72px);
+    align-items:start;
+  }
+  .sidebar>.eyebrow,
+  .sidebar>.headline,
+  .sidebar>.sub,
+  .sidebar>.quick,
+  .sidebar>.section-head,
+  .sidebar>#savedList,
+  .sidebar>.note{grid-column:1/-1}
+  .sidebar>.searchbox:first-of-type{grid-column:1/-1}
+  .sidebar>.section-head:nth-of-type(1){grid-column:1/-1}
+  .sidebar>.searchbox:has(#routeForm){grid-column:1/-1}
+  .sidebar>.section-head:has(#clearSaved){grid-column:1/-1}
+  .sidebar>#savedList{grid-column:1/-1}
+}
+@media(max-width:800px){
+  .app{min-height:100dvh}
+  .topbar{position:relative;min-height:66px}
+  .layout{min-height:0}
+  .sidebar{
+    width:100%;
+    padding:28px 18px 34px;
+  }
+  .headline{font-size:clamp(35px,9vw,48px);letter-spacing:-1.8px}
+  .sub{font-size:14px}
+  .searchbox{padding:16px;border-radius:18px}
+  .map-wrap{height:340px;min-height:300px}
+  #map{height:100%;min-height:300px}
+  .map-tools{top:10px;right:10px}
+  .map-tools button{padding:9px 11px;font-size:11px}
+  .map-status{bottom:10px;left:10px;max-width:calc(100% - 20px)}
+  .mobile-nav{position:sticky}
+}
+@media(max-width:420px){
+  .top-actions .status{display:none}
+  .top-actions .pill{padding:8px 9px;font-size:10px}
+  .brand{font-size:17px}
+  .brand small{font-size:8px}
+  .sidebar{padding-inline:14px}
+  .headline{font-size:35px}
+  .searchbox .field-row{gap:7px}
+  .searchbox .primary{padding-inline:13px}
+  .map-wrap{height:300px;min-height:280px}
+}
