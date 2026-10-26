@@ -62,3 +62,28 @@
  .stage-empty{pointer-events:none}
  .stage-empty button{pointer-events:auto}
 }
+
+/* Map interaction and route visibility fixes */
+.navigation-stage .road-map{touch-action:pan-x pan-y;cursor:grab}
+.navigation-stage .road-map:active{cursor:grabbing}
+/* Decorative overlays must never block dragging, panning, or rotating the live map. */
+.navigation-stage .stage-grid,
+.navigation-stage .stage-empty,
+.navigation-stage .stage-bottom,
+.navigation-stage .compass-caption{pointer-events:none}
+.navigation-stage .stage-empty button,
+.navigation-stage .stage-topline button,
+.navigation-stage .stage-zoom button,
+.navigation-stage .maneuver-card button,
+.navigation-stage .gps-chip{pointer-events:auto}
+.navigation-stage .maplibregl-canvas-container,
+.navigation-stage .maplibregl-canvas{touch-action:pan-x pan-y}
+.navigation-stage .maplibregl-ctrl-top-right{z-index:5}
+.navigation-stage .maplibregl-ctrl-bottom-right,
+.navigation-stage .maplibregl-ctrl-bottom-left{z-index:4}
+.map-pin{will-change:transform}
+@media(max-width:760px){
+ .navigation-stage .stage-empty{pointer-events:none}
+ .navigation-stage .stage-empty button{pointer-events:auto}
+ .navigation-stage .road-map{inset:0}
+}
